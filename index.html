@@ -1,442 +1,445 @@
-import React, { useState } from 'react';
-import { Copy, Download, Zap, Settings, Code } from 'lucide-react';
-
-export default function LuaObfuscator() {
-  const [inputCode, setInputCode] = useState('-- Paste your Lua code here\nlocal message = "Hello World"\nprint(message)');
-  const [outputCode, setOutputCode] = useState('');
-  const [junkAmount, setJunkAmount] = useState(3000);
-  const [fakeConstAmount, setFakeConstAmount] = useState(500);
-  const [isObfuscating, setIsObfuscating] = useState(false);
-  const [stats, setStats] = useState(null);
-
-  // Utility functions
-  const randomString = (len) => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    let result = "";
-    for (let i = 0; i < len; i++) {
-      result += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return result;
-  };
-
-  const randomVarName = () => {
-    const prefixes = ["_", "l_", "ll_", "I_", "O_", "o_", "i_", "L_"];
-    return prefixes[Math.floor(Math.random() * prefixes.length)] + randomString(Math.floor(Math.random() * 6) + 3);
-  };
-
-  const encodeNumber = (num) => {
-    const hex = num.toString(16).toUpperCase();
-    const padding = randomString(Math.floor(Math.random() * 5) + 2);
-    return padding + hex + randomString(Math.floor(Math.random() * 5) + 2);
-  };
-
-  const encodeString = (str) => {
-    let result = "";
-    for (let i = 0; i < str.length; i++) {
-      result += str.charCodeAt(i).toString(16).padStart(2, '0').toUpperCase();
-    }
-    return randomString(4) + result + randomString(4);
-  };
-
-  const generateFakeChains = (count) => {
-    count = Math.min(count, 150);
-    const chains = [];
-    const vars = [];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lua Bytecode Obfuscator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
     
-    for (let i = 0; i < count; i++) {
-      vars.push(randomVarName());
-    }
-    
-    for (let i = 0; i < vars.length; i++) {
-      if (i === vars.length - 1) {
-        chains.push(`local ${vars[i]}=0x${Math.floor(Math.random() * 9000 + 1000).toString(16)};`);
-      } else {
-        chains.push(`local ${vars[i]}=${vars[i + 1]};`);
-      }
-    }
-    
-    return chains.join("");
-  };
-
-  const generateJunkOpcodes = (count) => {
-    const junkOps = ["MV", "GG", "SG", "GT", "ST", "NT", "SF", "AD", "SB", "ML", "DV", 
-                     "MD", "PW", "UM", "NO", "CO", "JP", "EQ", "LT", "LE", "TS", "TX", 
-                     "TC", "VA", "GU", "SU", "CS", "FL", "FP", "TL", "SL", "LB", "NL",
-                     "XX", "YY", "ZZ", "AA", "BB", "CC", "DD", "EE", "FF", "GH", "IJ"];
-    
-    const junk = [];
-    for (let i = 0; i < count; i++) {
-      const op = junkOps[Math.floor(Math.random() * junkOps.length)];
-      const encoded = op + encodeNumber(Math.floor(Math.random() * 256)) + 
-                     encodeNumber(Math.floor(Math.random() * 256)) + 
-                     randomString(Math.floor(Math.random() * 21) + 15);
-      junk.push(encoded);
-    }
-    
-    return junk;
-  };
-
-  const generateFakeConstants = (count) => {
-    const fakes = {};
-    for (let i = 0; i < count; i++) {
-      const t = Math.floor(Math.random() * 3) + 1;
-      if (t === 1) {
-        fakes[i + 10000] = Math.floor(Math.random() * 100000);
-      } else if (t === 2) {
-        fakes[i + 10000] = randomString(Math.floor(Math.random() * 16) + 5);
-      } else {
-        fakes[i + 10000] = `__e_${Math.floor(Math.random() * 9000 + 1000)}__`;
-      }
-    }
-    return fakes;
-  };
-
-  const OPCODES = {
-    LOADK: "LD",
-    LOADN: "LN",
-    CALL: "CL",
-    RETURN: "RT",
-    PRINT: "PR",
-    CONCAT: "CC",
-  };
-
-  const parseSimpleLua = (code) => {
-    const instructions = [];
-    const constants = [];
-    
-    const addConstant = (value) => {
-      const idx = constants.indexOf(value);
-      if (idx !== -1) return idx;
-      constants.push(value);
-      return constants.length - 1;
-    };
-    
-    code = code.replace(/--[^\n]*/g, "");
-    code = code.replace(/\s+/g, " ").trim();
-    
-    const numAssigns = [...code.matchAll(/local\s+([%\w_]+)\s*=\s*(\d+)/g)];
-    numAssigns.forEach(match => {
-      instructions.push({
-        op: OPCODES.LOADN,
-        arg1: match[1],
-        arg2: parseInt(match[2])
-      });
-    });
-    
-    const strAssigns1 = [...code.matchAll(/local\s+([\w_]+)\s*=\s*"([^"]*)"/g)];
-    strAssigns1.forEach(match => {
-      instructions.push({
-        op: OPCODES.LOADK,
-        arg1: match[1],
-        arg2: addConstant(match[2])
-      });
-    });
-    
-    const strAssigns2 = [...code.matchAll(/local\s+([\w_]+)\s*=\s*'([^']*)'/g)];
-    strAssigns2.forEach(match => {
-      instructions.push({
-        op: OPCODES.LOADK,
-        arg1: match[1],
-        arg2: addConstant(match[2])
-      });
-    });
-    
-    const prints1 = [...code.matchAll(/print\s*\(\s*"([^"]*)"/g)];
-    prints1.forEach(match => {
-      instructions.push({
-        op: OPCODES.PRINT,
-        arg1: addConstant(match[1])
-      });
-    });
-    
-    const prints2 = [...code.matchAll(/print\s*\(\s*'([^']*)'/g)];
-    prints2.forEach(match => {
-      instructions.push({
-        op: OPCODES.PRINT,
-        arg1: addConstant(match[1])
-      });
-    });
-    
-    const printVars = [...code.matchAll(/print\s*\(\s*([\w_]+)\s*\)/g)];
-    printVars.forEach(match => {
-      if (!/^\d/.test(match[1])) {
-        instructions.push({
-          op: OPCODES.PRINT,
-          arg1: match[1],
-          arg2: "var"
-        });
-      }
-    });
-    
-    return { instructions, constants };
-  };
-
-  const encodeBytecode = (instructions, constants, junkAmount) => {
-    const bytecode = [];
-    const junkOpcodes = generateJunkOpcodes(junkAmount);
-    
-    const initialJunk = Math.floor(junkAmount * 0.3);
-    for (let i = 0; i < initialJunk; i++) {
-      bytecode.push(junkOpcodes[Math.floor(Math.random() * junkOpcodes.length)]);
-    }
-    
-    instructions.forEach(instr => {
-      let encoded = instr.op;
-      
-      if (instr.arg1 !== undefined) {
-        if (typeof instr.arg1 === "number") {
-          encoded += encodeNumber(instr.arg1);
-        } else {
-          encoded += encodeString(instr.arg1);
-        }
-      }
-      
-      if (instr.arg2 !== undefined) {
-        if (typeof instr.arg2 === "number") {
-          encoded += encodeNumber(instr.arg2);
-        } else if (instr.arg2 !== "var" && instr.arg2 !== "number" && instr.arg2 !== "const") {
-          encoded += encodeString(instr.arg2);
-        } else {
-          encoded += randomString(4);
-        }
-      }
-      
-      encoded += randomString(Math.floor(Math.random() * 21) + 10);
-      bytecode.push(encoded);
-      
-      const junkAfter = Math.floor(Math.random() * 101) + 50;
-      for (let j = 0; j < junkAfter; j++) {
-        bytecode.push(junkOpcodes[Math.floor(Math.random() * junkOpcodes.length)]);
-      }
-    });
-    
-    const trailingJunk = Math.floor(junkAmount * 0.3);
-    for (let i = 0; i < trailingJunk; i++) {
-      bytecode.push(junkOpcodes[Math.floor(Math.random() * junkOpcodes.length)]);
-    }
-    
-    return bytecode;
-  };
-
-  const generateVM = (bytecode, constants, fakeConstCount) => {
-    const vmVars = {
-      bytecode: randomVarName(),
-      constants: randomVarName(),
-      stack: randomVarName(),
-      pc: randomVarName(),
-      vars: randomVarName(),
-      instr: randomVarName(),
-      op: randomVarName(),
-      decode: randomVarName(),
-      decodeStr: randomVarName(),
-      decodeNum: randomVarName(),
-      exec: randomVarName(),
-      result: randomVarName(),
-    };
-    
-    let constStr = "{";
-    const fakeConsts = generateFakeConstants(fakeConstCount);
-    
-    Object.entries(fakeConsts).forEach(([idx, val]) => {
-      if (typeof val === "string") {
-        constStr += `[${idx}]="${val}",`;
-      } else {
-        constStr += `[${idx}]=${val},`;
-      }
-    });
-    
-    constants.forEach((const_, i) => {
-      if (typeof const_ === "string") {
-        const charCodes = [];
-        for (let j = 0; j < const_.length; j++) {
-          charCodes.push(const_.charCodeAt(j));
-        }
-        constStr += `[${i}]=string.char(${charCodes.join(",")}),`;
-      } else {
-        constStr += `[${i}]=${const_},`;
-      }
-    });
-    constStr += "}";
-    
-    let bcStr = "{";
-    bytecode.forEach(bc => {
-      bcStr += `"${bc}",`;
-    });
-    bcStr += "}";
-    
-    const fakeChains = generateFakeChains(Math.floor(Math.random() * 41) + 80);
-    
-    const vm = `(function() ${fakeChains} local ${vmVars.bytecode}=${bcStr} local ${vmVars.constants}=${constStr} local ${vmVars.stack}={} local ${vmVars.vars}={} local function ${vmVars.decodeStr}(s) local r="" for i=1,#s,2 do local b=tonumber(s:sub(i,i+1),16) if b then r=r..string.char(b) end end return r end local function ${vmVars.decodeNum}(s) local n=s:match("([0-9A-F]+)") return n and tonumber(n,16) or 0 end local function ${vmVars.exec}() local ${vmVars.pc}=1 while ${vmVars.pc}<=#${vmVars.bytecode} do local ${vmVars.instr}=${vmVars.bytecode}[${vmVars.pc}] local ${vmVars.op}=${vmVars.instr}:sub(1,2) if ${vmVars.op}=="${OPCODES.LOADK}" then local idx=${vmVars.decodeNum}(${vmVars.instr}:sub(3)) local var=${vmVars.decodeStr}(${vmVars.instr}:sub(20)) ${vmVars.vars}[var]=${vmVars.constants}[idx] elseif ${vmVars.op}=="${OPCODES.LOADN}" then local var=${vmVars.decodeStr}(${vmVars.instr}:sub(3)) local num=${vmVars.decodeNum}(${vmVars.instr}:sub(15)) ${vmVars.vars}[var]=num elseif ${vmVars.op}=="${OPCODES.PRINT}" then local idx=${vmVars.decodeNum}(${vmVars.instr}:sub(3)) if ${vmVars.constants}[idx] then print(${vmVars.constants}[idx]) else local var=${vmVars.decodeStr}(${vmVars.instr}:sub(20)) if ${vmVars.vars}[var] then print(${vmVars.vars}[var]) end end elseif ${vmVars.op}=="${OPCODES.CONCAT}" then local idx1=${vmVars.decodeNum}(${vmVars.instr}:sub(3)) local var=${vmVars.decodeStr}(${vmVars.instr}:sub(20)) if ${vmVars.constants}[idx1] and ${vmVars.vars}[var] then print(${vmVars.constants}[idx1]..tostring(${vmVars.vars}[var])) end elseif ${vmVars.op}=="${OPCODES.RETURN}" then local var=${vmVars.decodeStr}(${vmVars.instr}:sub(3)) if var and var~="" and ${vmVars.vars}[var] then return ${vmVars.vars}[var] end local num=${vmVars.decodeNum}(${vmVars.instr}:sub(15)) if num and num~=0 then return num end local idx=${vmVars.decodeNum}(${vmVars.instr}:sub(3)) if ${vmVars.constants}[idx] then return ${vmVars.constants}[idx] end end ${vmVars.pc}=${vmVars.pc}+1 end end local ${vmVars.result}=${vmVars.exec}() return ${vmVars.result} end)()`;
-    
-    return vm;
-  };
-
-  const obfuscate = () => {
-    setIsObfuscating(true);
-    setStats(null);
-    
-    setTimeout(() => {
-      try {
-        const { instructions, constants } = parseSimpleLua(inputCode);
-        const bytecode = encodeBytecode(instructions, constants, junkAmount);
-        const vm = generateVM(bytecode, constants, fakeConstAmount);
+    <script type="text/babel">
+        const { useState } = React;
         
-        setOutputCode(vm);
-        setStats({
-          instructions: instructions.length,
-          constants: constants.length,
-          bytecode: bytecode.length,
-          size: vm.length
-        });
-      } catch (error) {
-        setOutputCode(`-- Error: ${error.message}`);
-      }
-      setIsObfuscating(false);
-    }, 100);
-  };
+        function LuaObfuscator() {
+            const [inputCode, setInputCode] = useState('-- Paste your Lua code here\nlocal message = "Hello World"\nprint(message)');
+            const [outputCode, setOutputCode] = useState('');
+            const [junkAmount, setJunkAmount] = useState(3000);
+            const [fakeConstAmount, setFakeConstAmount] = useState(500);
+            const [isObfuscating, setIsObfuscating] = useState(false);
+            const [stats, setStats] = useState(null);
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(outputCode);
-  };
+            const randomString = (len) => {
+                const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+                let result = "";
+                for (let i = 0; i < len; i++) {
+                    result += chars[Math.floor(Math.random() * chars.length)];
+                }
+                return result;
+            };
 
-  const downloadFile = () => {
-    const blob = new Blob([outputCode], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'obfuscated.lua';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+            const randomVarName = () => {
+                const prefixes = ["_", "l_", "ll_", "I_", "O_", "o_", "i_e", "L_"];
+                return prefixes[Math.floor(Math.random() * prefixes.length)] + randomString(Math.floor(Math.random() * 6) + 3);
+            };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <header className="text-center mb-8 bg-black/30 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <Code className="w-10 h-10" />
-            <h1 className="text-5xl font-bold text-white">Lua Bytecode Obfuscator</h1>
-          </div>
-          <p className="text-purple-200 text-lg">Advanced code protection for Roblox scripts</p>
-        </header>
+            const encodeNumber = (num) => {
+                const hex = num.toString(16).toUpperCase();
+                const padding = randomString(Math.floor(Math.random() * 5) + 2);
+                return padding + hex + randomString(Math.floor(Math.random() * 5) + 2);
+            };
 
-        {/* Settings */}
-        <div className="bg-black/30 backdrop-blur-lg rounded-2xl p-6 mb-6 border border-white/10">
-          <div className="flex items-center gap-2 mb-4">
-            <Settings className="w-5 h-5 text-white" />
-            <h2 className="text-xl font-bold text-white">Settings</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <label className="text-white block mb-2">Junk Opcodes: {junkAmount}</label>
-              <input 
-                type="range" 
-                min="1000" 
-                max="10000" 
-                step="500"
-                value={junkAmount}
-                onChange={(e) => setJunkAmount(Number(e.target.value))}
-                className="w-full accent-purple-500"
-              />
-            </div>
-            <div>
-              <label className="text-white block mb-2">Fake Constants: {fakeConstAmount}</label>
-              <input 
-                type="range" 
-                min="100" 
-                max="2000" 
-                step="100"
-                value={fakeConstAmount}
-                onChange={(e) => setFakeConstAmount(Number(e.target.value))}
-                className="w-full accent-purple-500"
-              />
-            </div>
-          </div>
-        </div>
+            const encodeString = (str) => {
+                let result = "";
+                for (let i = 0; i < str.length; i++) {
+                    result += str.charCodeAt(i).toString(16).padStart(2, '0').toUpperCase();
+                }
+                return randomString(4) + result + randomString(4);
+            };
 
-        {/* Main Content */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
-          {/* Input */}
-          <div className="bg-black/30 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
-            <h2 className="text-xl font-bold text-white mb-4">Input Code</h2>
-            <textarea
-              value={inputCode}
-              onChange={(e) => setInputCode(e.target.value)}
-              className="w-full h-96 bg-black/60 text-white font-mono p-4 rounded-lg border border-white/20 focus:border-purple-500 focus:outline-none resize-none"
-              placeholder="Paste your Lua code here..."
-            />
-          </div>
+            const generateFakeChains = (count) => {
+                count = Math.min(count, 150);
+                const chains = [];
+                const vars = [];
+                
+                for (let i = 0; i < count; i++) {
+                    vars.push(randomVarName());
+                }
+                
+                for (let i = 0; i < vars.length; i++) {
+                    if (i === vars.length - 1) {
+                        chains.push(`local ${vars[i]}=0x${Math.floor(Math.random() * 9000 + 1000).toString(16)};`);
+                    } else {
+                        chains.push(`local ${vars[i]}=${vars[i + 1]};`);
+                    }
+                }
+                
+                return chains.join("");
+            };
 
-          {/* Output */}
-          <div className="bg-black/30 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-white">Obfuscated Output</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={copyToClipboard}
-                  disabled={!outputCode}
-                  className="p-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 rounded-lg transition-colors"
-                  title="Copy to clipboard"
-                >
-                  <Copy className="w-5 h-5 text-white" />
-                </button>
-                <button
-                  onClick={downloadFile}
-                  disabled={!outputCode}
-                  className="p-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 rounded-lg transition-colors"
-                  title="Download file"
-                >
-                  <Download className="w-5 h-5 text-white" />
-                </button>
-              </div>
-            </div>
-            <textarea
-              value={outputCode}
-              readOnly
-              className="w-full h-96 bg-black/60 text-green-400 font-mono p-4 rounded-lg border border-white/20 resize-none"
-              placeholder="Obfuscated code will appear here..."
-            />
-          </div>
-        </div>
+            const generateJunkOpcodes = (count) => {
+                const junkOps = ["MV", "GG", "SG", "GT", "ST", "NT", "SF", "AD", "SB", "ML", "DV", 
+                                "MD", "PW", "UM", "NO", "CO", "JP", "EQ", "LT", "LE", "TS", "TX", 
+                                "TC", "VA", "GU", "SU", "CS", "FL", "FP", "TL", "SL", "LB", "NL",
+                                "XX", "YY", "ZZ", "AA", "BB", "CC", "DD", "EE", "FF", "GH", "IJ"];
+                
+                const junk = [];
+                for (let i = 0; i < count; i++) {
+                    const op = junkOps[Math.floor(Math.random() * junkOps.length)];
+                    const encoded = op + encodeNumber(Math.floor(Math.random() * 256)) + 
+                                encodeNumber(Math.floor(Math.random() * 256)) + 
+                                randomString(Math.floor(Math.random() * 21) + 15);
+                    junk.push(encoded);
+                }
+                
+                return junk;
+            };
 
-        {/* Obfuscate Button */}
-        <div className="text-center mb-6">
-          <button
-            onClick={obfuscate}
-            disabled={isObfuscating || !inputCode}
-            className="px-12 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold text-xl rounded-xl shadow-2xl transition-all transform hover:scale-105 disabled:scale-100 flex items-center gap-3 mx-auto"
-          >
-            <Zap className="w-6 h-6" />
-            {isObfuscating ? 'Obfuscating...' : 'OBFUSCATE'}
-          </button>
-        </div>
+            const generateFakeConstants = (count) => {
+                const fakes = {};
+                for (let i = 0; i < count; i++) {
+                    const t = Math.floor(Math.random() * 3) + 1;
+                    if (t === 1) {
+                        fakes[i + 10000] = Math.floor(Math.random() * 100000);
+                    } else if (t === 2) {
+                        fakes[i + 10000] = randomString(Math.floor(Math.random() * 16) + 5);
+                    } else {
+                        fakes[i + 10000] = `__E_${Math.floor(Math.random() * 9000 + 1000)}__`;
+                    }
+                }
+                return fakes;
+            };
 
-        {/* Stats */}
-        {stats && (
-          <div className="bg-black/30 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
-            <h2 className="text-xl font-bold text-white mb-4">Statistics</h2>
-            <div className="grid grid-cols-4 gap-4 text-center">
-              <div className="bg-purple-600/30 rounded-lg p-4">
-                <div className="text-3xl font-bold text-white">{stats.instructions}</div>
-                <div className="text-purple-200">Instructions</div>
-              </div>
-              <div className="bg-purple-600/30 rounded-lg p-4">
-                <div className="text-3xl font-bold text-white">{stats.constants}</div>
-                <div className="text-purple-200">Constants</div>
-              </div>
-              <div className="bg-purple-600/30 rounded-lg p-4">
-                <div className="text-3xl font-bold text-white">{stats.bytecode}</div>
-                <div className="text-purple-200">Bytecode Entries</div>
-              </div>
-              <div className="bg-purple-600/30 rounded-lg p-4">
-                <div className="text-3xl font-bold text-white">{(stats.size / 1024).toFixed(1)}KB</div>
-                <div className="text-purple-200">Output Size</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+            const OPCODES = {
+                LOADK: "LD",
+                LOADN: "LN",
+                CALL: "CL",
+                RETURN: "RT",
+                PRINT: "PR",
+                CONCAT: "CC",
+            };
+
+            const parseSimpleLua = (code) => {
+                const instructions = [];
+                const constants = [];
+                
+                const addConstant = (value) => {
+                    const idx = constants.indexOf(value);
+                    if (idx !== -1) return idx;
+                    constants.push(value);
+                    return constants.length - 1;
+                };
+                
+                code = code.replace(/--[^\n]*/g, "");
+                code = code.replace(/\s+/g, " ").trim();
+                
+                const numAssigns = [...code.matchAll(/local\s+([\w_]+)\s*=\s*(\d+)/g)];
+                numAssigns.forEach(match => {
+                    instructions.push({
+                        op: OPCODES.LOADN,
+                        arg1: match[1],
+                        arg2: parseInt(match[2])
+                    });
+                });
+                
+                const strAssigns1 = [...code.matchAll(/local\s+([\w_]+)\s*=\s*"([^"]*)"/g)];
+                strAssigns1.forEach(match => {
+                    instructions.push({
+                        op: OPCODES.LOADK,
+                        arg1: match[1],
+                        arg2: addConstant(match[2])
+                    });
+                });
+                
+                const strAssigns2 = [...code.matchAll(/local\s+([\w_]+)\s*=\s*'([^']*)'/g)];
+                strAssigns2.forEach(match => {
+                    instructions.push({
+                        op: OPCODES.LOADK,
+                        arg1: match[1],
+                        arg2: addConstant(match[2])
+                    });
+                });
+                
+                const prints1 = [...code.matchAll(/print\s*\(\s*"([^"]*)"/g)];
+                prints1.forEach(match => {
+                    instructions.push({
+                        op: OPCODES.PRINT,
+                        arg1: addConstant(match[1])
+                    });
+                });
+                
+                const prints2 = [...code.matchAll(/print\s*\(\s*'([^']*)'/g)];
+                prints2.forEach(match => {
+                    instructions.push({
+                        op: OPCODES.PRINT,
+                        arg1: addConstant(match[1])
+                    });
+                });
+                
+                const printVars = [...code.matchAll(/print\s*\(\s*([\w_]+)\s*\)/g)];
+                printVars.forEach(match => {
+                    if (!/^\d/.test(match[1])) {
+                        instructions.push({
+                            op: OPCODES.PRINT,
+                            arg1: match[1],
+                            arg2: "var"
+                        });
+                    }
+                });
+                
+                return { instructions, constants };
+            };
+
+            const encodeBytecode = (instructions, constants, junkAmount) => {
+                const bytecode = [];
+                const junkOpcodes = generateJunkOpcodes(junkAmount);
+                
+                const initialJunk = Math.floor(junkAmount * 0.3);
+                for (let i = 0; i < initialJunk; i++) {
+                    bytecode.push(junkOpcodes[Math.floor(Math.random() * junkOpcodes.length)]);
+                }
+                
+                instructions.forEach(instr => {
+                    let encoded = instr.op;
+                    
+                    if (instr.arg1 !== undefined) {
+                        if (typeof instr.arg1 === "number") {
+                            encoded += encodeNumber(instr.arg1);
+                        } else {
+                            encoded += encodeString(instr.arg1);
+                        }
+                    }
+                    
+                    if (instr.arg2 !== undefined) {
+                        if (typeof instr.arg2 === "number") {
+                            encoded += encodeNumber(instr.arg2);
+                        } else if (instr.arg2 !== "var" && instr.arg2 !== "number" && instr.arg2 !== "const") {
+                            encoded += encodeString(instr.arg2);
+                        } else {
+                            encoded += randomString(4);
+                        }
+                    }
+                    
+                    encoded += randomString(Math.floor(Math.random() * 21) + 10);
+                    bytecode.push(encoded);
+                    
+                    const junkAfter = Math.floor(Math.random() * 101) + 50;
+                    for (let j = 0; j < junkAfter; j++) {
+                        bytecode.push(junkOpcodes[Math.floor(Math.random() * junkOpcodes.length)]);
+                    }
+                });
+                
+                const trailingJunk = Math.floor(junkAmount * 0.3);
+                for (let i = 0; i < trailingJunk; i++) {
+                    bytecode.push(junkOpcodes[Math.floor(Math.random() * junkOpcodes.length)]);
+                }
+                
+                return bytecode;
+            };
+
+            const generateVM = (bytecode, constants, fakeConstCount) => {
+                const vmVars = {
+                    bytecode: randomVarName(),
+                    constants: randomVarName(),
+                    stack: randomVarName(),
+                    pc: randomVarName(),
+                    vars: randomVarName(),
+                    instr: randomVarName(),
+                    op: randomVarName(),
+                    decode: randomVarName(),
+                    decodeStr: randomVarName(),
+                    decodeNum: randomVarName(),
+                    exec: randomVarName(),
+                    result: randomVarName(),
+                };
+                
+                let constStr = "{";
+                const fakeConsts = generateFakeConstants(fakeConstCount);
+                
+                Object.entries(fakeConsts).forEach(([idx, val]) => {
+                    if (typeof val === "string") {
+                        constStr += `[${idx}]="${val}",`;
+                    } else {
+                        constStr += `[${idx}]=${val},`;
+                    }
+                });
+                
+                constants.forEach((const_, i) => {
+                    if (typeof const_ === "string") {
+                        const charCodes = [];
+                        for (let j = 0; j < const_.length; j++) {
+                            charCodes.push(const_.charCodeAt(j));
+                        }
+                        constStr += `[${i}]=string.char(${charCodes.join(",")}),`;
+                    } else {
+                        constStr += `[${i}]=${const_},`;
+                    }
+                });
+                constStr += "}";
+                
+                let bcStr = "{";
+                bytecode.forEach(bc => {
+                    bcStr += `"${bc}",`;
+                });
+                bcStr += "}";
+                
+                const fakeChains = generateFakeChains(Math.floor(Math.random() * 41) + 80);
+                
+                const vm = `(function() ${fakeChains} local ${vmVars.bytecode}=${bcStr} local ${vmVars.constants}=${constStr} local ${vmVars.stack}={} local ${vmVars.vars}={} local function ${vmVars.decodeStr}(s) local r="" for i=1,#s,2 do local b=tonumber(s:sub(i,i+1),16) if b then r=r..string.char(b) end end return r end local function ${vmVars.decodeNum}(s) local n=s:match("([0-9A-F]+)") return n and tonumber(n,16) or 0 end local function ${vmVars.exec}() local ${vmVars.pc}=1 while ${vmVars.pc}<=#${vmVars.bytecode} do local ${vmVars.instr}=${vmVars.bytecode}[${vmVars.pc}] local ${vmVars.op}=${vmVars.instr}:sub(1,2) if ${vmVars.op}=="${OPCODES.LOADK}" then local idx=${vmVars.decodeNum}(${vmVars.instr}:sub(3)) local var=${vmVars.decodeStr}(${vmVars.instr}:sub(20)) ${vmVars.vars}[var]=${vmVars.constants}[idx] elseif ${vmVars.op}=="${OPCODES.LOADN}" then local var=${vmVars.decodeStr}(${vmVars.instr}:sub(3)) local num=${vmVars.decodeNum}(${vmVars.instr}:sub(15)) ${vmVars.vars}[var]=num elseif ${vmVars.op}=="${OPCODES.PRINT}" then local idx=${vmVars.decodeNum}(${vmVars.instr}:sub(3)) if ${vmVars.constants}[idx] then print(${vmVars.constants}[idx]) else local var=${vmVars.decodeStr}(${vmVars.instr}:sub(20)) if ${vmVars.vars}[var] then print(${vmVars.vars}[var]) end end elseif ${vmVars.op}=="${OPCODES.CONCAT}" then local idx1=${vmVars.decodeNum}(${vmVars.instr}:sub(3)) local var=${vmVars.decodeStr}(${vmVars.instr}:sub(20)) if ${vmVars.constants}[idx1] and ${vmVars.vars}[var] then print(${vmVars.constants}[idx1]..tostring(${vmVars.vars}[var])) end elseif ${vmVars.op}=="${OPCODES.RETURN}" then local var=${vmVars.decodeStr}(${vmVars.instr}:sub(3)) if var and var~="" and ${vmVars.vars}[var] then return ${vmVars.vars}[var] end local num=${vmVars.decodeNum}(${vmVars.instr}:sub(15)) if num and num~=0 then return num end local idx=${vmVars.decodeNum}(${vmVars.instr}:sub(3)) if ${vmVars.constants}[idx] then return ${vmVars.constants}[idx] end end ${vmVars.pc}=${vmVars.pc}+1 end end local ${vmVars.result}=${vmVars.exec}() return ${vmVars.result} end)()`;
+                
+                return vm;
+            };
+
+            const obfuscate = () => {
+                setIsObfuscating(true);
+                setStats(null);
+                
+                setTimeout(() => {
+                    try {
+                        const { instructions, constants } = parseSimpleLua(inputCode);
+                        const bytecode = encodeBytecode(instructions, constants, junkAmount);
+                        const vm = generateVM(bytecode, constants, fakeConstAmount);
+                        
+                        setOutputCode(vm);
+                        setStats({
+                            instructions: instructions.length,
+                            constants: constants.length,
+                            bytecode: bytecode.length,
+                            size: vm.length
+                        });
+                    } catch (error) {
+                        setOutputCode(`-- Error: ${error.message}`);
+                    }
+                    setIsObfuscating(false);
+                }, 100);
+            };
+
+            const copyToClipboard = () => {
+                navigator.clipboard.writeText(outputCode);
+                alert('Copied to clipboard!');
+            };
+
+            const downloadFile = () => {
+                const blob = new Blob([outputCode], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'obfuscated.lua';
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 p-4">
+                    <div className="max-w-7xl mx-auto">
+                        <header className="text-center mb-8 bg-black/30 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
+                            <h1 className="text-5xl font-bold text-white mb-2">⚡ Lua Bytecode Obfuscator</h1>
+                            <p className="text-purple-200 text-lg">Advanced code protection for Roblox scripts</p>
+                        </header>
+
+                        <div className="bg-black/30 backdrop-blur-lg rounded-2xl p-6 mb-6 border border-white/10">
+                            <h2 className="text-xl font-bold text-white mb-4">⚙️ Settings</h2>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label className="text-white block mb-2">Junk Opcodes: {junkAmount}</label>
+                                    <input 
+                                        type="range" 
+                                        min="1000" 
+                                        max="10000" 
+                                        step="500"
+                                        value={junkAmount}
+                                        onChange={(e) => setJunkAmount(Number(e.target.value))}
+                                        className="w-full accent-purple-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-white block mb-2">Fake Constants: {fakeConstAmount}</label>
+                                    <input 
+                                        type="range" 
+                                        min="100" 
+                                        max="2000" 
+                                        step="100"
+                                        value={fakeConstAmount}
+                                        onChange={(e) => setFakeConstAmount(Number(e.target.value))}
+                                        className="w-full accent-purple-500"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6 mb-6">
+                            <div className="bg-black/30 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
+                                <h2 className="text-xl font-bold text-white mb-4">📝 Input Code</h2>
+                                <textarea
+                                    value={inputCode}
+                                    onChange={(e) => setInputCode(e.target.value)}
+                                    className="w-full h-96 bg-black/60 text-white font-mono p-4 rounded-lg border border-white/20 focus:border-purple-500 focus:outline-none resize-none"
+                                    placeholder="Paste your Lua code here..."
+                                />
+                            </div>
+
+                            <div className="bg-black/30 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold text-white">🔒 Obfuscated Output</h2>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={copyToClipboard}
+                                            disabled={!outputCode}
+                                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors"
+                                        >
+                                            📋 Copy
+                                        </button>
+                                        <button
+                                            onClick={downloadFile}
+                                            disabled={!outputCode}
+                                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors"
+                                        >
+                                            💾 Download
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea
+                                    value={outputCode}
+                                    readOnly
+                                    className="w-full h-96 bg-black/60 text-green-400 font-mono p-4 rounded-lg border border-white/20 resize-none"
+                                    placeholder="Obfuscated code will appear here..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="text-center mb-6">
+                            <button
+                                onClick={obfuscate}
+                                disabled={isObfuscating || !inputCode}
+                                className="px-12 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold text-xl rounded-xl shadow-2xl transition-all transform hover:scale-105 disabled:scale-100"
+                            >
+                                ⚡ {isObfuscating ? 'OBFUSCATING...' : 'OBFUSCATE NOW'}
+                            </button>
+                        </div>
+
+                        {stats && (
+                            <div className="bg-black/30 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
+                                <h2 className="text-xl font-bold text-white mb-4">📊 Statistics</h2>
+                                <div className="grid grid-cols-4 gap-4 text-center">
+                                    <div className="bg-purple-600/30 rounded-lg p-4">
+                                        <div className="text-3xl font-bold text-white">{stats.instructions}</div>
+                                        <div className="text-purple-200">Instructions</div>
+                                    </div>
+                                    <div className="bg-purple-600/30 rounded-lg p-4">
+                                        <div className="text-3xl font-bold text-white">{stats.constants}</div>
+                                        <div className="text-purple-200">Constants</div>
+                                    </div>
+                                    <div className="bg-purple-600/30 rounded-lg p-4">
+                                        <div className="text-3xl font-bold text-white">{stats.bytecode}</div>
+                                        <div className="text-purple-200">Bytecode Entries</div>
+                                    </div>
+                                    <div className="bg-purple-600/30 rounded-lg p-4">
+                                        <div className="text-3xl font-bold text-white">{(stats.size / 1024).toFixed(1)}KB</div>
+                                        <div className="text-purple-200">Output Size</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<LuaObfuscator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
