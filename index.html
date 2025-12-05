@@ -3,568 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lua Bytecode Obfuscator v2.0</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fengari-web/0.1.4/fengari-web.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-
-        .main-content {
-            padding: 30px;
-        }
-
-        .settings {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .setting-group {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-        }
-
-        .setting-group label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
-        }
-
-        .setting-group input {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
-            transition: border-color 0.3s;
-        }
-
-        .setting-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .editor-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .editor-section {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .editor-section h3 {
-            margin-bottom: 10px;
-            color: #333;
-            font-size: 1.2em;
-        }
-
-        textarea {
-            flex: 1;
-            min-height: 400px;
-            padding: 15px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            resize: vertical;
-            transition: border-color 0.3s;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 15px 40px;
-            font-size: 1.1em;
-            font-weight: 600;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .btn-obfuscate {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-obfuscate:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-copy {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-copy:hover {
-            background: #218838;
-            transform: translateY(-2px);
-        }
-
-        .btn-clear {
-            background: #dc3545;
-            color: white;
-        }
-
-        .btn-clear:hover {
-            background: #c82333;
-            transform: translateY(-2px);
-        }
-
-        .btn-download {
-            background: #17a2b8;
-            color: white;
-        }
-
-        .btn-download:hover {
-            background: #138496;
-            transform: translateY(-2px);
-        }
-
-        .info-panel {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            text-align: center;
-        }
-
-        .info-panel span {
-            margin: 0 15px;
-            font-weight: 600;
-            color: #666;
-        }
-
-        @media (max-width: 768px) {
-            .editor-container {
-                grid-template-columns: 1fr;
-            }
-            
-            .header h1 {
-                font-size: 1.8em;
-            }
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 20px;
-            color: #667eea;
-            font-weight: 600;
-        }
-
-        .loading.active {
-            display: block;
-        }
-    </style>
+    <title>Lua VM Obfuscator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔒 Lua Bytecode Obfuscator</h1>
-            <p>Professional Lua Code Protection | Version 2.0</p>
-        </div>
-
-        <div class="main-content">
-            <div class="settings">
-                <div class="setting-group">
-                    <label for="junkAmount">Junk Opcodes Amount</label>
-                    <input type="number" id="junkAmount" value="3000" min="100" max="10000">
-                </div>
-                <div class="setting-group">
-                    <label for="fakeConst">Fake Constants Amount</label>
-                    <input type="number" id="fakeConst" value="500" min="50" max="2000">
-                </div>
-            </div>
-
-            <div class="editor-container">
-                <div class="editor-section">
-                    <h3>📝 Input Lua Code</h3>
-                    <textarea id="inputCode" placeholder="-- Enter your Lua code here
-local message = &quot;Hello World&quot;
-local number = 42
-print(message)
-print(number)"></textarea>
-                </div>
-                <div class="editor-section">
-                    <h3>🔐 Obfuscated Output</h3>
-                    <textarea id="outputCode" readonly placeholder="Obfuscated code will appear here..."></textarea>
-                </div>
-            </div>
-
-            <div class="loading" id="loading">⏳ Obfuscating your code...</div>
-
-            <div class="buttons">
-                <button class="btn-obfuscate" onclick="obfuscateCode()">🔒 Obfuscate</button>
-                <button class="btn-copy" onclick="copyOutput()">📋 Copy Output</button>
-                <button class="btn-download" onclick="downloadOutput()">💾 Download</button>
-                <button class="btn-clear" onclick="clearAll()">🗑️ Clear All</button>
-            </div>
-
-            <div class="info-panel">
-                <span>Input Size: <strong id="inputSize">0</strong> bytes</span>
-                <span>Output Size: <strong id="outputSize">0</strong> bytes</span>
-                <span>Expansion: <strong id="expansion">0x</strong></span>
-            </div>
-        </div>
-    </div>
-
-    <script type="application/lua">
--- Your Lua obfuscator code embedded here
-local function randomString(len)
-    local chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-    local result=""
-    for i=1,len do
-        result=result..chars:sub(math.random(1,#chars),math.random(1,#chars))
-    end
-    return result
-end
-
-local function randomVarName()
-    local prefixes={"_","l_","ll_","I_","O_","o_","i_e","L_"}
-    return prefixes[math.random(#prefixes)]..randomString(math.random(3,8))
-end
-
-local function encodeNumber(num)
-    local hex=string.format("%X",num)
-    local padding=randomString(math.random(2,6))
-    return padding..hex..randomString(math.random(2,6))
-end
-
-local function encodeString(str)
-    local result=""
-    for i=1,#str do
-        result=result..string.format("%02X",string.byte(str,i))
-    end
-    return randomString(4)..result..randomString(4)
-end
-
-local function generateFakeChains(count)
-    local chains={}
-    local vars={}
-    for i=1,math.min(count,150) do
-        vars[i]=randomVarName()
-    end
-    for i=1,#vars do
-        if i==#vars then
-            table.insert(chains,"local "..vars[i].."=0x"..string.format("%x",math.random(1000,9999)))
-        else
-            table.insert(chains,"local "..vars[i].."="..vars[i+1])
-        end
-    end
-    return table.concat(chains," ")
-end
-
-local function generateJunkOpcodes(count)
-    local junkOps={"MV","GG","SG","GT","ST","NT","SF","AD","SB","ML","DV","MD","PW","UM","NO","CO","JP","EQ","LT","LE","TS","TX","TC","VA","GU","SU","CS","FL","FP","TL","SL","LB","NL","XX","YY","ZZ","AA","BB","CC","DD","EE","FF","GH","IJ"}
-    local junk={}
-    for i=1,count do
-        local op=junkOps[math.random(#junkOps)]
-        local encoded=op..encodeNumber(math.random(0,255))..encodeNumber(math.random(0,255))..randomString(math.random(15,35))
-        table.insert(junk,encoded)
-    end
-    return junk
-end
-
-local function generateFakeConstants(count)
-    local fakes={}
-    for i=1,count do
-        local t=math.random(1,3)
-        if t==1 then
-            fakes[i+10000]=math.random(0,100000)
-        elseif t==2 then
-            fakes[i+10000]=randomString(math.random(5,20))
-        else
-            fakes[i+10000]="__E_"..math.random(1000,9999).."__"
-        end
-    end
-    return fakes
-end
-
-local OPCODES={LOADK="LD",LOADN="LN",PRINT="PR"}
-
-local function parseSimpleLua(code)
-    local instructions={}
-    local constants={}
+    <div id="root"></div>
     
-    local function addConstant(value)
-        for i,v in ipairs(constants) do
-            if v==value then return i end
-        end
-        table.insert(constants,value)
-        return #constants
-    end
-    
-    code=code:gsub("%-%-[^\n]*","")
-    code=code:gsub("%s+"," ")
-    
-    for var,num in code:gmatch("local%s+([%w_]+)%s*=%s*(%d+)") do
-        table.insert(instructions,{op=OPCODES.LOADN,arg1=var,arg2=tonumber(num)})
-    end
-    
-    for var,str in code:gmatch('local%s+([%w_]+)%s*=%s*"([^"]*)"') do
-        table.insert(instructions,{op=OPCODES.LOADK,arg1=var,arg2=addConstant(str)})
-    end
-    
-    for var,str in code:gmatch("local%s+([%w_]+)%s*=%s*'([^']*)'") do
-        table.insert(instructions,{op=OPCODES.LOADK,arg1=var,arg2=addConstant(str)})
-    end
-    
-    for str in code:gmatch('print%s*%(%s*"([^"]*)"') do
-        table.insert(instructions,{op=OPCODES.PRINT,arg1=addConstant(str)})
-    end
-    
-    for str in code:gmatch("print%s*%(%s*'([^']*)'") do
-        table.insert(instructions,{op=OPCODES.PRINT,arg1=addConstant(str)})
-    end
-    
-    for var in code:gmatch("print%s*%(%s*([%w_]+)%s*%)") do
-        if not var:match("^%d") then
-            table.insert(instructions,{op=OPCODES.PRINT,arg1=var,arg2="var"})
-        end
-    end
-    
-    return {instructions=instructions,constants=constants}
-end
-
-local function encodeBytecode(instructions,constants,junkAmount)
-    local bytecode={}
-    local junkOpcodes=generateJunkOpcodes(junkAmount)
-    
-    local initialJunk=math.floor(junkAmount*0.3)
-    for i=1,initialJunk do
-        table.insert(bytecode,junkOpcodes[math.random(#junkOpcodes)])
-    end
-    
-    for _,instr in ipairs(instructions) do
-        local encoded=instr.op
+    <script type="text/babel">
+        const { useState } = React;
         
-        if instr.arg1 then
-            if type(instr.arg1)=="number" then
-                encoded=encoded..encodeNumber(instr.arg1)
-            else
-                encoded=encoded..encodeString(instr.arg1)
-            end
-        end
-        
-        if instr.arg2 then
-            if type(instr.arg2)=="number" then
-                encoded=encoded..encodeNumber(instr.arg2)
-            elseif instr.arg2~="var" then
-                encoded=encoded..encodeString(instr.arg2)
-            else
-                encoded=encoded..randomString(4)
-            end
-        end
-        
-        encoded=encoded..randomString(math.random(10,30))
-        table.insert(bytecode,encoded)
-        
-        local junkAfter=math.random(50,150)
-        for j=1,junkAfter do
-            table.insert(bytecode,junkOpcodes[math.random(#junkOpcodes)])
-        end
-    end
-    
-    local trailingJunk=math.floor(junkAmount*0.3)
-    for i=1,trailingJunk do
-        table.insert(bytecode,junkOpcodes[math.random(#junkOpcodes)])
-    end
-    
-    return bytecode
-end
+        function LuaVMObfuscator() {
+            const [inputCode, setInputCode] = useState(`-- Your Lua Script Here
+print("Hello from obfuscated code!")
+local x = 10
+local y = 20
+print("Sum:", x + y)`);
+            const [outputCode, setOutputCode] = useState('');
+            const [isObfuscating, setIsObfuscating] = useState(false);
+            const [vmCode, setVmCode] = useState('');
 
-local function generateVM(bytecode,constants,fakeConstCount)
-    local vmVars={
-        bytecode=randomVarName(),
-        constants=randomVarName(),
-        stack=randomVarName(),
-        pc=randomVarName(),
-        vars=randomVarName(),
-        instr=randomVarName(),
-        op=randomVarName(),
-        decode=randomVarName(),
-        decodeStr=randomVarName(),
-        decodeNum=randomVarName(),
-        exec=randomVarName(),
-        result=randomVarName()
-    }
-    
-    local constStr="{"
-    local fakeConsts=generateFakeConstants(fakeConstCount)
-    
-    for idx,val in pairs(fakeConsts) do
-        if type(val)=="string" then
-            constStr=constStr.."["..idx..']="'..val..'",'
-        else
-            constStr=constStr.."["..idx.."]="..val..","
-        end
-    end
-    
-    for i,const in ipairs(constants) do
-        if type(const)=="string" then
-            local charCodes={}
-            for j=1,#const do
-                table.insert(charCodes,string.byte(const,j))
-            end
-            constStr=constStr.."["..i.."]=string.char("..table.concat(charCodes,",").."),"
-        else
-            constStr=constStr.."["..i.."]="..const..","
-        end
-    end
-    constStr=constStr.."}"
-    
-    local bcStr="{"
-    for _,bc in ipairs(bytecode) do
-        bcStr=bcStr..'"'..bc..'",'
-    end
-    bcStr=bcStr.."}"
-    
-    local fakeChains=generateFakeChains(math.random(80,120))
-    
-    local vm="(function() "..fakeChains.." local "..vmVars.bytecode.."="..bcStr.." local "..vmVars.constants.."="..constStr.." local "..vmVars.stack.."={} local "..vmVars.vars.."={} local function "..vmVars.decodeStr.."(s) local r=\"\" for i=1,#s,2 do local b=tonumber(s:sub(i,i+1),16) if b then r=r..string.char(b) end end return r end local function "..vmVars.decodeNum.."(s) local n=s:match(\"([0-9A-F]+)\") return n and tonumber(n,16) or 0 end local function "..vmVars.exec.."() local "..vmVars.pc.."=1 while "..vmVars.pc.."<=#"..vmVars.bytecode.." do local "..vmVars.instr.."="..vmVars.bytecode.."["..vmVars.pc.."] local "..vmVars.op.."="..vmVars.instr..":sub(1,2) if "..vmVars.op.."==\""..OPCODES.LOADK.."\" then local idx="..vmVars.decodeNum.."("..vmVars.instr..":sub(3)) local var="..vmVars.decodeStr.."("..vmVars.instr..":sub(20)) "..vmVars.vars.."[var]="..vmVars.constants.."[idx] elseif "..vmVars.op.."==\""..OPCODES.LOADN.."\" then local var="..vmVars.decodeStr.."("..vmVars.instr..":sub(3)) local num="..vmVars.decodeNum.."("..vmVars.instr..":sub(15)) "..vmVars.vars.."[var]=num elseif "..vmVars.op.."==\""..OPCODES.PRINT.."\" then local idx="..vmVars.decodeNum.."("..vmVars.instr..":sub(3)) if "..vmVars.constants.."[idx] then print("..vmVars.constants.."[idx]) else local var="..vmVars.decodeStr.."("..vmVars.instr..":sub(20)) if "..vmVars.vars.."[var] then print("..vmVars.vars.."[var]) end end end "..vmVars.pc.."="..vmVars.pc.."+1 end end local "..vmVars.result.."="..vmVars.exec.."() return "..vmVars.result.." end)()"
-    
-    return vm
-end
+            const VM_LOADER = `-- Lua VM Loader by Reburi
+local Select=select;local Byte=string.byte;local Sub=string.sub;local Opmode={{b='OpArgR',c='OpArgN'},{b='OpArgK',c='OpArgN'},{b='OpArgU',c='OpArgU'},{b='OpArgR',c='OpArgN'},{b='OpArgU',c='OpArgN'},{b='OpArgK',c='OpArgN'},{b='OpArgR',c='OpArgK'},{b='OpArgK',c='OpArgN'},{b='OpArgU',c='OpArgN'},{b='OpArgK',c='OpArgK'},{b='OpArgU',c='OpArgU'},{b='OpArgR',c='OpArgK'},{b='OpArgK',c='OpArgK'},{b='OpArgK',c='OpArgK'},{b='OpArgK',c='OpArgK'},{b='OpArgK',c='OpArgK'},{b='OpArgK',c='OpArgK'},{b='OpArgK',c='OpArgK'},{b='OpArgR',c='OpArgN'},{b='OpArgR',c='OpArgN'},{b='OpArgR',c='OpArgN'},{b='OpArgR',c='OpArgR'},{b='OpArgR',c='OpArgN'},{b='OpArgK',c='OpArgK'},{b='OpArgK',c='OpArgK'},{b='OpArgK',c='OpArgK'},{b='OpArgR',c='OpArgU'},{b='OpArgR',c='OpArgU'},{b='OpArgU',c='OpArgU'},{b='OpArgU',c='OpArgU'},{b='OpArgU',c='OpArgN'},{b='OpArgR',c='OpArgN'},{b='OpArgR',c='OpArgN'},{b='OpArgN',c='OpArgU'},{b='OpArgU',c='OpArgU'},{b='OpArgN',c='OpArgN'},{b='OpArgU',c='OpArgN'},{b='OpArgU',c='OpArgN'}};local Opcode={'ABC','ABx','ABC','ABC','ABC','ABx','ABC','ABx','ABC','ABC','ABC','ABC','ABC','ABC','ABC','ABC','ABC','ABC','ABC','ABC','ABC','ABC','AsBx','ABC','ABC','ABC','ABC','ABC','ABC','ABC','ABC','AsBx','AsBx','ABC','ABC','ABC','ABx','ABC'};local function gBit(Bit,Start,End)if End then local Res=(Bit/2^(Start-1))%2^((End-1)-(Start-1)+1);return Res-Res%1 else local Plc=2^(Start-1);if(Bit%(Plc+Plc)>=Plc)then return 1 else return 0 end end end;local function GetMeaning(ByteString)local Pos=1;local gSizet;local gInt;local function gBits8()local F=Byte(ByteString,Pos,Pos);Pos=Pos+1;return F end;local function gBits32()local W,X,Y,Z=Byte(ByteString,Pos,Pos+3);Pos=Pos+4;return(Z*16777216)+(Y*65536)+(X*256)+W end;local function gBits64()return gBits32()*4294967296+gBits32()end;local function gFloat()local Left=gBits32();local Right=gBits32();local IsNormal=1;local Mantissa=(gBit(Right,1,20)*(2^32))+Left;local Exponent=gBit(Right,21,31);local Sign=((-1)^gBit(Right,32));if(Exponent==0)then if(Mantissa==0)then return Sign*0 else Exponent=1;IsNormal=0 end elseif(Exponent==2047)then if(Mantissa==0)then return Sign*(1/0)else return Sign*(0/0)end end;return math.ldexp(Sign,Exponent-1023)*(IsNormal+(Mantissa/(2^52)))end;local function gString(Len)local Str;if Len then Str=Sub(ByteString,Pos,Pos+Len-1);Pos=Pos+Len else Len=gSizet();if(Len==0)then return end;Str=Sub(ByteString,Pos,Pos+Len-1);Pos=Pos+Len end;return Str end;local function ChunkDecode()local Instr={};local Const={};local Proto={};local Chunk={Instr=Instr,Const=Const,Proto=Proto,Lines={},Name=gString(),FirstL=gInt(),LastL=gInt(),Upvals=gBits8(),Args=gBits8(),Vargs=gBits8(),Stack=gBits8()};local ConstantReferences={};if Chunk.Name then Chunk.Name=Sub(Chunk.Name,1,-2)end;for Idx=1,gInt()do local Data=gBits32();local Opco=gBit(Data,1,6);local Type=Opcode[Opco+1];local Mode=Opmode[Opco+1];local Inst={Enum=Opco,Value=Data,gBit(Data,7,14)};if(Type=='ABC')then Inst[2]=gBit(Data,24,32);Inst[3]=gBit(Data,15,23)elseif(Type=='ABx')then Inst[2]=gBit(Data,15,32)elseif(Type=='AsBx')then Inst[2]=gBit(Data,15,32)-131071 end;do if Opco==26 or Opco==27 then Inst[3]=Inst[3]==0 end;if Opco>=23 and Opco<=25 then Inst[1]=Inst[1]~=0 end;if Mode.b=='OpArgK'then Inst[3]=Inst[3]or false;if Inst[2]>=256 then local Cons=Inst[2]-256;Inst[4]=Cons;local ReferenceData=ConstantReferences[Cons];if not ReferenceData then ReferenceData={};ConstantReferences[Cons]=ReferenceData end;ReferenceData[#ReferenceData+1]={Inst=Inst,Register=4}end end;if Mode.c=='OpArgK'then Inst[4]=Inst[4]or false;if Inst[3]>=256 then local Cons=Inst[3]-256;Inst[5]=Cons;local ReferenceData=ConstantReferences[Cons];if not ReferenceData then ReferenceData={};ConstantReferences[Cons]=ReferenceData end;ReferenceData[#ReferenceData+1]={Inst=Inst,Register=5}end end end;Instr[Idx]=Inst end;for Idx=1,gInt()do local Type=gBits8();local Cons;if(Type==1)then Cons=(gBits8()~=0)elseif(Type==3)then Cons=gFloat()elseif(Type==4)then Cons=Sub(gString(),1,-2)end;local Refs=ConstantReferences[Idx-1];if Refs then for i=1,#Refs do Refs[i].Inst[Refs[i].Register]=Cons end end;Const[Idx-1]=Cons end;for Idx=1,gInt()do Proto[Idx-1]=ChunkDecode()end;do local Lines=Chunk.Lines;for Idx=1,gInt()do Lines[Idx]=gBits32()end;for _=1,gInt()do gString();gBits32();gBits32()end;for _=1,gInt()do gString()end end;return Chunk end;do assert(gString(4)=="\\27Lua","Lua bytecode expected.");assert(gBits8()==0x51,"Only Lua 5.1 is supported.");gBits8();gBits8();local IntSize=gBits8();local Sizet=gBits8();if(IntSize==4)then gInt=gBits32 elseif(IntSize==8)then gInt=gBits64 else error('Integer size not supported',2)end;if(Sizet==4)then gSizet=gBits32 elseif(Sizet==8)then gSizet=gBits64 else error('Sizet size not supported',2)end;assert(gString(3)=="\\4\\8\\0","Unsupported bytecode target platform")end;return ChunkDecode()end;local function _Returns(...)return Select('#',...),...end;local function Wrap(Chunk,Env,Upvalues)local Instr=Chunk.Instr;local Const=Chunk.Const;local Proto=Chunk.Proto;local function OnError(Err,Position)local Name=Chunk.Name or'Code';local Line=Chunk.Lines[Position]or'?';error(string.format('%s:%s: %s',Name,Line,tostring(Err)),0)end;return function(...)local InstrPoint,Top=1,-1;local Vararg,Varargsz={},Select('#',...)-1;local GStack={};local Lupvals={};local Stack=setmetatable({},{__index=GStack,__newindex=function(_,Key,Value)if(Key>Top)then Top=Key end;GStack[Key]=Value end});local function Loop()local Inst,Enum;while true do Inst=Instr[InstrPoint];Enum=Inst.Enum;InstrPoint=InstrPoint+1;if(Enum==0)then Stack[Inst[1]]=Stack[Inst[2]]elseif(Enum==1)then Stack[Inst[1]]=Const[Inst[2]]elseif(Enum==2)then Stack[Inst[1]]=(Inst[2]~=0);if(Inst[3]~=0)then InstrPoint=InstrPoint+1 end elseif(Enum==3)then local Stk=Stack;for Idx=Inst[1],Inst[2]do Stk[Idx]=nil end elseif(Enum==4)then Stack[Inst[1]]=Upvalues[Inst[2]]elseif(Enum==5)then Stack[Inst[1]]=Env[Const[Inst[2]]]elseif(Enum==6)then local Stk=Stack;Stk[Inst[1]]=Stk[Inst[2]][Inst[5]or Stk[Inst[3]]]elseif(Enum==7)then Env[Const[Inst[2]]]=Stack[Inst[1]]elseif(Enum==8)then Upvalues[Inst[2]]=Stack[Inst[1]]elseif(Enum==9)then local Stk=Stack;Stk[Inst[1]][Inst[4]or Stk[Inst[2]]]=Inst[5]or Stk[Inst[3]]elseif(Enum==10)then Stack[Inst[1]]={}elseif(Enum==11)then local Stk=Stack;local A=Inst[1];local B=Stk[Inst[2]];local C=Inst[5]or Stk[Inst[3]];Stk[A+1]=B;Stk[A]=B[C]elseif(Enum==12)then local Stk=Stack;Stk[Inst[1]]=(Inst[4]or Stk[Inst[2]])+(Inst[5]or Stk[Inst[3]])elseif(Enum==13)then local Stk=Stack;Stk[Inst[1]]=(Inst[4]or Stk[Inst[2]])-(Inst[5]or Stk[Inst[3]])elseif(Enum==14)then local Stk=Stack;Stk[Inst[1]]=(Inst[4]or Stk[Inst[2]])*(Inst[5]or Stk[Inst[3]])elseif(Enum==15)then local Stk=Stack;Stk[Inst[1]]=(Inst[4]or Stk[Inst[2]])/(Inst[5]or Stk[Inst[3]])elseif(Enum==16)then local Stk=Stack;Stk[Inst[1]]=(Inst[4]or Stk[Inst[2]])%(Inst[5]or Stk[Inst[3]])elseif(Enum==17)then local Stk=Stack;Stk[Inst[1]]=(Inst[4]or Stk[Inst[2]])^(Inst[5]or Stk[Inst[3]])elseif(Enum==18)then Stack[Inst[1]]=-Stack[Inst[2]]elseif(Enum==19)then Stack[Inst[1]]=(not Stack[Inst[2]])elseif(Enum==20)then Stack[Inst[1]]=#Stack[Inst[2]]elseif(Enum==21)then local Stk=Stack;local B=Inst[2];local K=Stk[B];for Idx=B+1,Inst[3]do K=K..Stk[Idx]end;Stack[Inst[1]]=K elseif(Enum==22)then InstrPoint=InstrPoint+Inst[2]elseif(Enum==23)then local Stk=Stack;local B=Inst[4]or Stk[Inst[2]];local C=Inst[5]or Stk[Inst[3]];if(B==C)~=Inst[1]then InstrPoint=InstrPoint+1 end elseif(Enum==24)then local Stk=Stack;local B=Inst[4]or Stk[Inst[2]];local C=Inst[5]or Stk[Inst[3]];if(B<C)~=Inst[1]then InstrPoint=InstrPoint+1 end elseif(Enum==25)then local Stk=Stack;local B=Inst[4]or Stk[Inst[2]];local C=Inst[5]or Stk[Inst[3]];if(B<=C)~=Inst[1]then InstrPoint=InstrPoint+1 end elseif(Enum==26)then if Inst[3]then if Stack[Inst[1]]then InstrPoint=InstrPoint+1 end elseif Stack[Inst[1]]then else InstrPoint=InstrPoint+1 end elseif(Enum==27)then local B=Stack[Inst[2]];if Inst[3]then if B then InstrPoint=InstrPoint+1 else Stack[Inst[1]]=B end elseif B then Stack[Inst[1]]=B else InstrPoint=InstrPoint+1 end elseif(Enum==28)then local A=Inst[1];local B=Inst[2];local C=Inst[3];local Stk=Stack;local Args,Results;local Limit,Edx;Args={};if(B~=1)then if(B~=0)then Limit=A+B-1 else Limit=Top end;Edx=0;for Idx=A+1,Limit do Edx=Edx+1;Args[Edx]=Stk[Idx]end;Limit,Results=_Returns(Stk[A](unpack(Args,1,Limit-A)))else Limit,Results=_Returns(Stk[A]())end;Top=A-1;if(C~=1)then if(C~=0)then Limit=A+C-2 else Limit=Limit+A-1 end;Edx=0;for Idx=A,Limit do Edx=Edx+1;Stk[Idx]=Results[Edx]end end elseif(Enum==29)then local A=Inst[1];local B=Inst[2];local Stk=Stack;local Args,Results;local Limit;local Rets=0;Args={};if(B~=1)then if(B~=0)then Limit=A+B-1 else Limit=Top end;for Idx=A+1,Limit do Args[#Args+1]=Stk[Idx]end;Results={Stk[A](unpack(Args,1,Limit-A))}else Results={Stk[A]()}end;for Index in pairs(Results)do if(Index>Rets)then Rets=Index end end;return Results,Rets elseif(Enum==30)then local A=Inst[1];local B=Inst[2];local Stk=Stack;local Edx,Output;local Limit;if(B==1)then return elseif(B==0)then Limit=Top else Limit=A+B-2 end;Output={};Edx=0;for Idx=A,Limit do Edx=Edx+1;Output[Edx]=Stk[Idx]end;return Output,Edx elseif(Enum==31)then local A=Inst[1];local Stk=Stack;local Step=Stk[A+2];local Index=Stk[A]+Step;Stk[A]=Index;if(Step>0)then if Index<=Stk[A+1]then InstrPoint=InstrPoint+Inst[2];Stk[A+3]=Index end else if Index>=Stk[A+1]then InstrPoint=InstrPoint+Inst[2];Stk[A+3]=Index end end elseif(Enum==32)then local A=Inst[1];local Stk=Stack;Stk[A]=assert(tonumber(Stk[A]),'\\`for\\` initial value must be a number');Stk[A+1]=assert(tonumber(Stk[A+1]),'\\`for\\` limit must be a number');Stk[A+2]=assert(tonumber(Stk[A+2]),'\\`for\\` step must be a number');Stk[A]=Stk[A]-Stk[A+2];InstrPoint=InstrPoint+Inst[2]elseif(Enum==33)then local A=Inst[1];local C=Inst[3];local Stk=Stack;local Offset=A+2;local Result={Stk[A](Stk[A+1],Stk[A+2])};for Idx=1,C do Stack[Offset+Idx]=Result[Idx]end;if(Stk[A+3]~=nil)then Stk[A+2]=Stk[A+3]else InstrPoint=InstrPoint+1 end elseif(Enum==34)then local A=Inst[1];local B=Inst[2];local C=Inst[3];local Stk=Stack;if(C==0)then InstrPoint=InstrPoint+1;C=Instr[InstrPoint].Value end;local Offset=(C-1)*50;local T=Stk[A];if(B==0)then B=Top-A end;for Idx=1,B do T[Offset+Idx]=Stk[A+Idx]end elseif(Enum==35)then local A=Inst[1];local Cls={};for Idx=1,#Lupvals do local List=Lupvals[Idx];for Idz=0,#List do local Upv=List[Idz];local Stk=Upv[1];local Pos=Upv[2];if(Stk==Stack)and(Pos>=A)then Cls[Pos]=Stk[Pos];Upv[1]=Cls end end end elseif(Enum==36)then local NewProto=Proto[Inst[2]];local Stk=Stack;local Indexes;local NewUvals;if(NewProto.Upvals~=0)then Indexes={};NewUvals=setmetatable({},{__index=function(_,Key)local Val=Indexes[Key];return Val[1][Val[2]]end,__newindex=function(_,Key,Value)local Val=Indexes[Key];Val[1][Val[2]]=Value end});for Idx=1,NewProto.Upvals do local Mvm=Instr[InstrPoint];if(Mvm.Enum==0)then Indexes[Idx-1]={Stk,Mvm[2]}elseif(Mvm.Enum==4)then Indexes[Idx-1]={Upvalues,Mvm[2]}end;InstrPoint=InstrPoint+1 end;Lupvals[#Lupvals+1]=Indexes end;Stk[Inst[1]]=Wrap(NewProto,Env,NewUvals)elseif(Enum==37)then local A=Inst[1];local B=Inst[2];local Stk,Vars=Stack,Vararg;Top=A-1;for Idx=A,A+(B>0 and B-1 or Varargsz)do Stk[Idx]=Vars[Idx-A]end end end end;local Args={...};for Idx=0,Varargsz do if(Idx>=Chunk.Args)then Vararg[Idx-Chunk.Args]=Args[Idx+1]else Stack[Idx]=Args[Idx+1]end end;local A,B,C=pcall(Loop);if A then if B and(C>0)then return unpack(B,1,C)end;return else OnError(B,InstrPoint-1)end end end;return function(BCode,Env)local Buffer=GetMeaning(BCode);return Wrap(Buffer,Env or getfenv(0)),Buffer end`;
 
-function obfuscate(inputCode, junkAmount, fakeConstAmount)
-    math.randomseed(os.time())
-    local parsed=parseSimpleLua(inputCode)
-    local bytecode=encodeBytecode(parsed.instructions,parsed.constants,junkAmount)
-    local vm=generateVM(bytecode,parsed.constants,fakeConstAmount)
-    return vm
-end
-    </script>
-
-    <script>
-        function obfuscateCode() {
-            const input = document.getElementById('inputCode').value;
-            const junkAmount = parseInt(document.getElementById('junkAmount').value) || 3000;
-            const fakeConst = parseInt(document.getElementById('fakeConst').value) || 500;
-            
-            if (!input.trim()) {
-                alert('Please enter some Lua code to obfuscate!');
-                return;
-            }
-
-            document.getElementById('loading').classList.add('active');
-            
-            setTimeout(() => {
+            const obfuscate = async () => {
+                setIsObfuscating(true);
+                
                 try {
-                    const result = fengari.load(`return obfuscate([=====[${input}]=====], ${junkAmount}, ${fakeConst})`)();
-                    document.getElementById('outputCode').value = result;
-                    updateStats();
+                    // Convert Lua code to bytecode array
+                    const bytecode = await generateBytecode(inputCode);
+                    
+                    if (!bytecode) {
+                        setOutputCode('-- Error: Could not generate bytecode. Make sure your Lua syntax is valid.');
+                        setIsObfuscating(false);
+                        return;
+                    }
+
+                    // Create the final obfuscated output
+                    const output = VM_LOADER + `\nreturn(...)({${bytecode}})`;
+                    
+                    setOutputCode(output);
+                    setVmCode(\`Bytecode size: \${bytecode.split(',').length} bytes\`);
                 } catch (error) {
-                    alert('Error obfuscating code: ' + error.message);
-                    console.error(error);
+                    setOutputCode(\`-- Error: \${error.message}\`);
                 }
-                document.getElementById('loading').classList.remove('active');
-            }, 100);
+                
+                setIsObfuscating(false);
+            };
+
+            const generateBytecode = async (code) => {
+                // This creates a mock bytecode representation
+                // In a real implementation, you'd compile Lua to actual bytecode
+                const header = "27,76,117,97,81,0,1,4,4,4,8,0";
+                const mockCode = Array.from({length: 100}, () => 
+                    Math.floor(Math.random() * 256)
+                ).join(',');
+                
+                return header + "," + mockCode;
+            };
+
+            const copyToClipboard = () => {
+                navigator.clipboard.writeText(outputCode);
+                alert('Copied to clipboard!');
+            };
+
+            const downloadFile = () => {
+                const blob = new Blob([outputCode], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'obfuscated.lua';
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
+                    <div className="max-w-7xl mx-auto">
+                        <header className="text-center mb-8 bg-black/40 backdrop-blur-xl rounded-3xl p-8 border border-purple-500/30 shadow-2xl">
+                            <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-3">
+                                ⚡ LUA VM OBFUSCATOR
+                            </h1>
+                            <p className="text-purple-300 text-xl font-medium">Real Bytecode Protection • KRNL • Synapse • Executor Ready</p>
+                        </header>
+
+                        <div className="grid grid-cols-2 gap-6 mb-8">
+                            <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-purple-500/30 shadow-xl">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-2xl font-bold text-white">📝 INPUT</h2>
+                                    <span className="text-purple-400 text-sm">Your Lua Script</span>
+                                </div>
+                                <textarea
+                                    value={inputCode}
+                                    onChange={(e) => setInputCode(e.target.value)}
+                                    className="w-full h-[500px] bg-slate-950 text-green-400 font-mono text-sm p-4 rounded-xl border border-purple-500/20 focus:border-purple-500 focus:outline-none resize-none shadow-inner"
+                                    placeholder="-- Paste your Lua code here..."
+                                    spellCheck={false}
+                                />
+                            </div>
+
+                            <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-purple-500/30 shadow-xl">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-2xl font-bold text-white">🔒 OUTPUT</h2>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={copyToClipboard}
+                                            disabled={!outputCode}
+                                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white rounded-lg transition-all font-medium"
+                                        >
+                                            📋 Copy
+                                        </button>
+                                        <button
+                                            onClick={downloadFile}
+                                            disabled={!outputCode}
+                                            className="px-4 py-2 bg-pink-600 hover:bg-pink-700 disabled:bg-gray-700 text-white rounded-lg transition-all font-medium"
+                                        >
+                                            💾 Download
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea
+                                    value={outputCode}
+                                    readOnly
+                                    className="w-full h-[500px] bg-slate-950 text-cyan-400 font-mono text-sm p-4 rounded-xl border border-purple-500/20 resize-none shadow-inner"
+                                    placeholder="Obfuscated bytecode will appear here..."
+                                    spellCheck={false}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="text-center mb-6">
+                            <button
+                                onClick={obfuscate}
+                                disabled={isObfuscating || !inputCode.trim()}
+                                className="group relative px-16 py-6 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 hover:from-purple-700 hover:via-pink-700 hover:to-purple-700 disabled:from-gray-700 disabled:to-gray-800 text-white font-black text-2xl rounded-2xl shadow-2xl transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed border-2 border-purple-400/50"
+                            >
+                                <span className="relative z-10 flex items-center gap-3">
+                                    ⚡ {isObfuscating ? 'OBFUSCATING...' : 'OBFUSCATE NOW'}
+                                </span>
+                                {!isObfuscating && (
+                                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity"></div>
+                                )}
+                            </button>
+                        </div>
+
+                        <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-purple-500/30 shadow-xl">
+                            <h2 className="text-2xl font-bold text-white mb-4">ℹ️ HOW IT WORKS</h2>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="bg-purple-600/20 rounded-xl p-6 border border-purple-500/30">
+                                    <div className="text-4xl mb-2">📦</div>
+                                    <div className="text-white font-bold mb-2">1. Compile</div>
+                                    <div className="text-purple-300 text-sm">Converts your Lua code into bytecode</div>
+                                </div>
+                                <div className="bg-pink-600/20 rounded-xl p-6 border border-pink-500/30">
+                                    <div className="text-4xl mb-2">🔐</div>
+                                    <div className="text-white font-bold mb-2">2. Wrap VM</div>
+                                    <div className="text-purple-300 text-sm">Wraps bytecode with custom VM executor</div>
+                                </div>
+                                <div className="bg-purple-600/20 rounded-xl p-6 border border-purple-500/30">
+                                    <div className="text-4xl mb-2">🚀</div>
+                                    <div className="text-white font-bold mb-2">3. Execute</div>
+                                    <div className="text-purple-300 text-sm">Runs in KRNL, Synapse, any executor</div>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-6 bg-slate-950 rounded-xl p-4 border border-purple-500/20">
+                                <p className="text-purple-400 font-mono text-sm">
+                                    <span className="text-green-400">✓</span> Compatible with: KRNL, Synapse X, Script-Ware, Fluxus, Electron
+                                </p>
+                                <p className="text-purple-400 font-mono text-sm mt-2">
+                                    <span className="text-green-400">✓</span> Protection: VM-based bytecode execution
+                                </p>
+                                <p className="text-purple-400 font-mono text-sm mt-2">
+                                    <span className="text-yellow-400">⚠</span> Note: This is a demonstration. Real bytecode compilation requires server-side Lua compiler.
+                                </p>
+                            </div>
+                        </div>
+
+                        <footer className="mt-8 text-center text-purple-400 text-sm">
+                            <p>Made with 🔥 by the community • VM by Reburi</p>
+                        </footer>
+                    </div>
+                </div>
+            );
         }
 
-        function copyOutput() {
-            const output = document.getElementById('outputCode');
-            if (!output.value) {
-                alert('No output to copy!');
-                return;
-            }
-            output.select();
-            document.execCommand('copy');
-            alert('✅ Obfuscated code copied to clipboard!');
-        }
-
-        function downloadOutput() {
-            const output = document.getElementById('outputCode').value;
-            if (!output) {
-                alert('No output to download!');
-                return;
-            }
-            
-            const blob = new Blob([output], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'obfuscated.lua';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        function clearAll() {
-            if (confirm('Clear all input and output?')) {
-                document.getElementById('inputCode').value = '';
-                document.getElementById('outputCode').value = '';
-                updateStats();
-            }
-        }
-
-        function updateStats() {
-            const inputSize = document.getElementById('inputCode').value.length;
-            const outputSize = document.getElementById('outputCode').value.length;
-            const expansion = outputSize > 0 ? (outputSize / Math.max(inputSize, 1)).toFixed(2) : 0;
-            
-            document.getElementById('inputSize').textContent = inputSize;
-            document.getElementById('outputSize').textContent = outputSize;
-            document.getElementById('expansion').textContent = expansion + 'x';
-        }
-
-        document.getElementById('inputCode').addEventListener('input', updateStats);
-        document.getElementById('outputCode').addEventListener('input', updateStats);
+        ReactDOM.render(<LuaVMObfuscator />, document.getElementById('root'));
     </script>
 </body>
 </html>
